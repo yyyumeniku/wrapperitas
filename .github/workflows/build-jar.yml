@@ -16,10 +16,16 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Set up JDK 8
+    - name: Set up JDK 8 (toolchain for compilation)
       uses: actions/setup-java@v4
       with:
         java-version: '8'
+        distribution: 'zulu'
+
+    - name: Set up JDK 21 (Gradle runner)
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
         distribution: 'zulu'
         cache: gradle
 
