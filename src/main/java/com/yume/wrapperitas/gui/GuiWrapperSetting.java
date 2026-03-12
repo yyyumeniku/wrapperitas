@@ -21,11 +21,6 @@ public class GuiWrapperSetting extends GuiConfig {
     @Override
     public void initGui() {
         super.initGui();
-        int doneWidth = Math.max(mc.fontRenderer.getStringWidth(net.minecraft.client.resources.I18n.format("gui.done")) + 20, 100);
-        int resetWidth = mc.fontRenderer.getStringWidth(" " + net.minecraft.client.resources.I18n.format("fml.configgui.tooltip.resetToDefault")) + mc.fontRenderer.getStringWidth(" \u21BA") * 2 + 20;
-        int undoWidth = mc.fontRenderer.getStringWidth(" " + net.minecraft.client.resources.I18n.format("fml.configgui.tooltip.undoChanges")) + mc.fontRenderer.getStringWidth(" \u21B6") * 2 + 20;
-        int buttonWidthHalf = (doneWidth + 5 + undoWidth + 5 + resetWidth) / 2;
-
         GuiButton updateBtn = new GuiButton(3000, this.width / 2 - 100, this.height - 55, 200, 20, "Open Update Menu");
         if (UpdateChecker.latestUpdate == null) {
             updateBtn.enabled = false;

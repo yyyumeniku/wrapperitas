@@ -4,16 +4,22 @@ import com.yume.wrapperitas.check.DownloaderService;
 import com.yume.wrapperitas.check.UpdateChecker;
 import com.yume.wrapperitas.util.GameRestarter;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiConfirmOpenLink;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiYesNoCallback;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 
+import java.awt.Color;
 import java.io.IOException;
+import java.net.URI;
 
-public class GuiDownloadPrompt extends GuiScreen {
+public class GuiDownloadPrompt extends GuiScreen implements GuiYesNoCallback {
+
+    private static final int OPEN_RELEASE_LINK_ID = 9102;
 
     private final GuiScreen parentScreen;
     private GuiButton downloadButton;
@@ -22,6 +28,9 @@ public class GuiDownloadPrompt extends GuiScreen {
     private GuiButton continueButton;
 
     private static final ResourceLocation CELERITAS_ICON = new ResourceLocation("wrapperitas", "textures/gui/icon.png");
+    private int modNameX;
+    private int modNameY;
+    private int modNameWidth;
 
     public GuiDownloadPrompt(GuiScreen parentScreen) {
         this.parentScreen = parentScreen;
@@ -125,17 +134,17 @@ public class GuiDownloadPrompt extends GuiScreen {
                 && UpdateChecker.latestUpdate.version.equals(UpdateChecker.currentVersion);
 
         if (DownloaderService.downloaded) {
-             this.drawString(this.fontRenderer, "Download Successful!", textX, boxY + 14, 0x55FF55);
-             this.drawString(this.fontRenderer, "Celeritas " + UpdateChecker.latestUpdate.version, textX, boxY + 30, 0x55FF55);
-             this.drawString(this.fontRenderer, "Please restart game.", textX, boxY + 46, 0x55FF55);
+             this.drawString(this.fontRenderer, "Download Successful!", textX, boxY + 14, 0x7CFC96);
+             this.drawString(this.fontRenderer, "Celeritas " + UpdateChecker.latestUpdate.version, textX, boxY + 30, 0xA8FFB8);
+             this.drawString(this.fontRenderer, "Please restart game.", textX, boxY + 46, 0xC8FAD0);
 
             downloadButton.visible = false;
             cancelButton.visible = false;
             restartButton.visible = true;
             continueButton.visible = true;
         } else if (DownloaderService.progress > 0.0f && !DownloaderService.error) {
-             this.drawString(this.fontRenderer, "Downloading...", textX, boxY + 20, 0x55FF55);
-             this.drawString(this.fontRenderer, String.format("%.0f%%", DownloaderService.progress * 100), textX, boxY + 36, 0x55FF55);
+             this.drawString(this.fontRenderer, "Downloading...", textX, boxY + 20, 0x7FDBFF);
+             this.drawString(this.fontRenderer, String.format("%.0f%%", DownloaderService.progress * 100), textX, boxY + 36, 0xB8EDFF);
             
             int barWidth = boxWidth - 30;
             int barHeight = 10;
@@ -147,18 +156,29 @@ public class GuiDownloadPrompt extends GuiScreen {
             downloadButton.visible = false;
             cancelButton.visible = false;
         } else if (DownloaderService.error) {
-             this.drawString(this.fontRenderer, "Download Failed.", textX, boxY + 20, 0xFF5555);
-             this.drawString(this.fontRenderer, "Check logs.", textX, boxY + 36, 0xFF5555);
+             this.drawString(this.fontRenderer, "Download Failed.", textX, boxY + 20, 0xFF6B6B);
+             this.drawString(this.fontRenderer, "Check logs.", textX, boxY + 36, 0xFFC1C1);
             downloadButton.visible = false;
             cancelButton.visible = true;
         } else {
-             this.drawString(this.fontRenderer, "Update Available", textX, boxY + 14, 0x55FF55);
-             this.drawString(this.fontRenderer, UpdateChecker.latestUpdate.version + " (" + UpdateChecker.latestUpdate.getReadableSize() + ")", textX, boxY + 30, 0x55FF55);
-             if (isOldBuild) {
-                 this.drawString(this.fontRenderer, "Reason: old build.", textX, boxY + 46, 0x55FF55);
+             String modName = "\u00A7nCeleritas\u00A7r";
+             modNameWidth = this.fontRenderer.getStringWidth("Celeritas");
+             modNameX = textX;
+             modNameY = boxY + 14;
+             boolean hoverModName = isHoveringModName(mouseX, mouseY);
+             int linkColor = hoverModName ? 0x5555FF : 0xFFFFFF;
+             this.drawString(this.fontRenderer, modName, modNameX, modNameY, linkColor);
+
+             drawRainbowString("Update Available", textX, boxY + 30);
+
+             String versionLine;
+             if (UpdateChecker.currentVersion == null || "None".equals(UpdateChecker.currentVersion)) {
+                 versionLine = "Version: none -> " + UpdateChecker.latestUpdate.version;
              } else {
-                 this.drawString(this.fontRenderer, "Reason: outdated.", textX, boxY + 46, 0x55FF55);
+                 versionLine = "Version: " + UpdateChecker.currentVersion + " -> " + UpdateChecker.latestUpdate.version;
              }
+             this.drawString(this.fontRenderer, versionLine, textX, boxY + 46, 0x7FDBFF);
+             this.drawString(this.fontRenderer, "Reason: " + buildReasonText(isOldBuild), textX, boxY + 58, 0xFFD166);
         }
 
         super.drawScreen(mouseX, mouseY, partialTicks);
@@ -176,6 +196,80 @@ public class GuiDownloadPrompt extends GuiScreen {
             GameRestarter.restart();
         } else if (button.id == 3) { // Continue Playing
             this.mc.displayGuiScreen(parentScreen);
+        }
+    }
+
+    @Override
+    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        if (mouseButton == 0 && UpdateChecker.latestUpdate != null && isHoveringModName(mouseX, mouseY)) {
+            String link = getReleaseLink();
+            if (link != null && !link.isEmpty()) {
+                this.mc.displayGuiScreen(new GuiConfirmOpenLink(this, link, OPEN_RELEASE_LINK_ID, false));
+                return;
+            }
+        }
+
+        super.mouseClicked(mouseX, mouseY, mouseButton);
+    }
+
+    @Override
+    public void confirmClicked(boolean result, int id) {
+        if (id == OPEN_RELEASE_LINK_ID && result) {
+            String link = getReleaseLink();
+            if (link != null && !link.isEmpty()) {
+                try {
+                    if (java.awt.Desktop.isDesktopSupported()) {
+                        java.awt.Desktop.getDesktop().browse(new URI(link));
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        this.mc.displayGuiScreen(this);
+    }
+
+    private boolean isHoveringModName(int mouseX, int mouseY) {
+        return mouseX >= modNameX && mouseX <= modNameX + modNameWidth
+                && mouseY >= modNameY && mouseY <= modNameY + this.fontRenderer.FONT_HEIGHT;
+    }
+
+    private String getReleaseLink() {
+        if (UpdateChecker.latestReleasePageUrl != null && !UpdateChecker.latestReleasePageUrl.isEmpty()) {
+            return UpdateChecker.latestReleasePageUrl;
+        }
+        if (UpdateChecker.latestUpdate != null) {
+            return UpdateChecker.latestUpdate.downloadUrl;
+        }
+        return null;
+    }
+
+    private String buildReasonText(boolean isOldBuild) {
+        if (UpdateChecker.latestReason == null) {
+            return isOldBuild ? "outdated" : "update";
+        }
+
+        switch (UpdateChecker.latestReason) {
+            case NONE:
+                return "not installed";
+            case OUTDATED:
+                return "outdated";
+            case UPDATE:
+            default:
+                return "update";
+        }
+    }
+
+    private void drawRainbowString(String text, int x, int y) {
+        float baseHue = (System.currentTimeMillis() % 5000L) / 5000.0f;
+        int cursorX = x;
+        for (int i = 0; i < text.length(); i++) {
+            String ch = text.substring(i, i + 1);
+            float hue = (baseHue + (i * 0.045f)) % 1.0f;
+            int color = Color.HSBtoRGB(hue, 0.72f, 1.0f);
+            this.drawString(this.fontRenderer, ch, cursorX, y, color);
+            cursorX += this.fontRenderer.getStringWidth(ch);
         }
     }
 }

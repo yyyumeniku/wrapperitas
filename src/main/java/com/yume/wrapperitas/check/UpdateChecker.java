@@ -22,11 +22,25 @@ public class UpdateChecker {
     public static CeleritasUpdateInfo latestUpdate = null;
     public static String currentVersion = "None";
     public static File currentJarFile = null;
+    public static UpdateReason latestReason = null;
+    public static String latestReleasePageUrl = null;
+
+    public enum UpdateReason {
+        NONE,
+        OUTDATED,
+        UPDATE
+    }
 
     public static void findLocalVersion(File modsDir) {
+        currentVersion = "None";
+        currentJarFile = null;
+
         if (!modsDir.exists() || !modsDir.isDirectory()) return;
 
-        for (File f : modsDir.listFiles()) {
+        File[] files = modsDir.listFiles();
+        if (files == null) return;
+
+        for (File f : files) {
             if (f.isFile() && f.getName().endsWith(".jar")) {
                 Matcher matcher = FILE_PATTERN.matcher(f.getName());
                 if (matcher.matches()) {
@@ -55,6 +69,7 @@ public class UpdateChecker {
                     JsonObject release = releaseElement.getAsJsonObject();
                     String publishDateStr = release.get("published_at").getAsString();
                     long publishTimestamp = Instant.parse(publishDateStr).toEpochMilli();
+                    String releasePageUrl = release.has("html_url") ? release.get("html_url").getAsString() : null;
 
                     JsonArray assets = release.getAsJsonArray("assets");
 
@@ -68,20 +83,30 @@ public class UpdateChecker {
                             String downloadUrl = asset.get("browser_download_url").getAsString();
                             long size = asset.get("size").getAsLong();
 
-                            boolean shouldUpdate = false;
+                            boolean shouldUpdate;
+                            UpdateReason reason;
                             
-                            // Check naturally if version doesn't match
-                            if (currentJarFile == null || currentVersion == null || currentVersion.equals("None") || !version.equals(currentVersion)) {
+                            if (currentJarFile == null || currentVersion == null || currentVersion.equals("None")) {
                                 shouldUpdate = true;
+                                reason = UpdateReason.NONE;
+                            } else if (!version.equals(currentVersion)) {
+                                shouldUpdate = true;
+                                reason = UpdateReason.UPDATE;
                             } else {
-                                // Same version name, check if github published date is strictly newer than our local file
+                                // Same version name, check if github published date is strictly newer than local file.
                                 if (publishTimestamp > currentJarFile.lastModified() + 10000) { // Add 10s buffer to avoid loop
                                     shouldUpdate = true;
+                                    reason = UpdateReason.OUTDATED;
+                                } else {
+                                    shouldUpdate = false;
+                                    reason = null;
                                 }
                             }
 
                             if (shouldUpdate) {
                                 latestUpdate = new CeleritasUpdateInfo(version, downloadUrl, size);
+                                latestReason = reason;
+                                latestReleasePageUrl = releasePageUrl != null ? releasePageUrl : downloadUrl;
                                 System.out.println("[Wrapperitas] New Celeritas update found: " + version);
 
                                 // If sync mode triggers, we do AWT popup
@@ -89,6 +114,9 @@ public class UpdateChecker {
                                 if (doSyncDownload) { DownloaderService.downloadSyncWithUI(latestUpdate); }
                                 return; // Fetched the latest
                             } else {
+                                latestUpdate = null;
+                                latestReason = null;
+                                latestReleasePageUrl = null;
                                 System.out.println("[Wrapperitas] Celeritas is up to date.");
                                 return;
                             }

@@ -37,7 +37,6 @@ public class GuiUpdateNotification {
          int y = isModList ? gui.height - 55 : 20;
          
          int prefixWidth = Minecraft.getMinecraft().fontRenderer.getStringWidth(PREFIX_TEXT);
-         int clickWidth = Minecraft.getMinecraft().fontRenderer.getStringWidth(CLICK_TEXT);
          boolean hoverClick = mouseX >= x + prefixWidth && mouseX <= x + fullWidth && mouseY >= y && mouseY <= y + Minecraft.getMinecraft().fontRenderer.FONT_HEIGHT;
 
          gui.drawString(Minecraft.getMinecraft().fontRenderer, PREFIX_TEXT, x, y, 0xFFFFFF);

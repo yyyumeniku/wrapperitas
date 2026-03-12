@@ -1,7 +1,5 @@
 package com.yume.wrapperitas.check;
 
-import com.yume.wrapperitas.util.GameRestarter;
-
 import javax.swing.*;
 import java.awt.*;
 import java.io.BufferedInputStream;
@@ -43,14 +41,13 @@ public class DownloaderService {
         textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
         textPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        boolean isOldBuild = UpdateChecker.currentVersion != null && info.version.equals(UpdateChecker.currentVersion);
-        String reasonStr = isOldBuild ? "Reason: old build" : "Reason: outdated";
+        String reasonStr = "Reason: " + getReasonText(info);
 
         JLabel statusLabel = new JLabel("Status: Downloading...");
         statusLabel.setFont(new Font("Arial", Font.BOLD, 14));
         statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel infoLabel = new JLabel("Update Available: " + info.version + " (" + info.getReadableSize() + ")");
+        JLabel infoLabel = new JLabel("Celeritas " + info.version + " (" + info.getReadableSize() + ")");
         infoLabel.setFont(new Font("Arial", Font.PLAIN, 12));
         infoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         
@@ -112,13 +109,8 @@ public class DownloaderService {
                 tempFile.renameTo(finalFile);
 
                 SwingUtilities.invokeLater(() -> {
-                    statusLabel.setText("Status: Restarting...");
+                    statusLabel.setText("Status: Completed. Please restart launcher.");
                 });
-                
-                Thread.sleep(1500); 
-                
-                // CRUCIAL FIX: Relaunch via GameRestarter instead of just exiting with 87!
-                GameRestarter.restart();
                 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -178,5 +170,30 @@ public class DownloaderService {
                 e.printStackTrace();
             }
         }, "CeleritasUpdateDownload").start();
+    }
+
+    private static String getReasonText(UpdateChecker.CeleritasUpdateInfo info) {
+        if (UpdateChecker.latestReason != null) {
+            switch (UpdateChecker.latestReason) {
+                case NONE:
+                    return "not installed";
+                case OUTDATED:
+                    return "outdated";
+                case UPDATE:
+                    return "update";
+                default:
+                    break;
+            }
+        }
+
+        if (UpdateChecker.currentVersion == null || "None".equals(UpdateChecker.currentVersion)) {
+            return "not installed";
+        }
+
+        if (info.version.equals(UpdateChecker.currentVersion)) {
+            return "outdated";
+        }
+
+        return "update";
     }
 }
