@@ -1,0 +1,71 @@
+name: Build and Release to GitHub
+
+on:
+  workflow_dispatch:
+    inputs:
+      mod_version:
+        description: 'Optional mod version override (leave empty to use gradle.properties)'
+        required: false
+        default: ''
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 8 (toolchain for compilation)
+      uses: actions/setup-java@v4
+      with:
+        java-version: '8'
+        distribution: 'zulu'
+
+    - name: Set up JDK 25 (Gradle runner)
+      uses: actions/setup-java@v4
+      with:
+        java-version: '25'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Resolve build version
+      id: version
+      run: |
+        if [ -n "${{ inputs.mod_version }}" ]; then
+          sed -i "s/^mod_version = .*/mod_version = ${{ inputs.mod_version }}/" gradle.properties
+          VERSION="${{ inputs.mod_version }}"
+        else
+          VERSION="$(grep -E '^mod_version\s*=' gradle.properties | head -n1 | cut -d'=' -f2 | xargs)"
+        fi
+        echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build with Gradle
+      run: ./gradlew build --no-daemon
+
+    - name: Find built jar
+      run: echo "JAR_PATH=$(ls build/libs/*.jar | head -n1)" >> $GITHUB_ENV
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.version.outputs.value }}
+        release_name: wrapperitas-${{ steps.version.outputs.value }}
+        body: |
+          Release for version ${{ steps.version.outputs.value }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v2
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ env.JAR_PATH }}
+        asset_name: wrapperitas-${{ steps.version.outputs.value }}.jar
+        asset_content_type: application/java-archive
