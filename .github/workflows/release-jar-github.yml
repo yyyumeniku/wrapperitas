@@ -61,4 +61,5 @@ jobs:
         draft: false
         prerelease: false
         artifacts: ${{ env.JAR_PATH }}
+        allowUpdates: true
         token: ${{ secrets.GITHUB_TOKEN }}
