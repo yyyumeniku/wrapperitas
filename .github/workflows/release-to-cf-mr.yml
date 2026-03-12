@@ -33,11 +33,11 @@ jobs:
           java-version: '8'
           distribution: 'zulu'
 
-      - name: Set up JDK 21 (Gradle runner)
+      - name: Set up JDK 25 (Gradle runner)
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'zulu'
+          java-version: '25'
+          distribution: 'temurin'
           cache: gradle
 
       - name: Resolve build version
