@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       mod_version:
-        description: 'Release Version (e.g. 1.0.1)'
-        required: true
-        default: '1.0.1'
+        description: 'Optional release version override (leave empty to use gradle.properties)'
+        required: false
+        default: ''
 
 jobs:
   release:
@@ -25,9 +25,16 @@ jobs:
         distribution: 'zulu'
         cache: gradle
 
-    - name: Update gradle.properties Version
+    - name: Resolve release version
+      id: version
       run: |
-        sed -i "s/^mod_version = .*/mod_version = ${{ inputs.mod_version }}/" gradle.properties
+        if [ -n "${{ inputs.mod_version }}" ]; then
+          sed -i "s/^mod_version = .*/mod_version = ${{ inputs.mod_version }}/" gradle.properties
+          VERSION="${{ inputs.mod_version }}"
+        else
+          VERSION="$(grep -E '^mod_version\s*=' gradle.properties | head -n1 | cut -d'=' -f2 | xargs)"
+        fi
+        echo "value=$VERSION" >> "$GITHUB_OUTPUT"
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
@@ -38,14 +45,14 @@ jobs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: wrapperitas-${{ inputs.mod_version }}
+        name: wrapperitas-${{ steps.version.outputs.value }}
         path: build/libs/*.jar
 
     - name: Create GitHub Release and Tag
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ inputs.mod_version }}
-        name: Release ${{ inputs.mod_version }}
+        tag_name: ${{ steps.version.outputs.value }}
+        name: Release ${{ steps.version.outputs.value }}
         files: build/libs/*.jar
         generate_release_notes: true
       env:
