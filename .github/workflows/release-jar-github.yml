@@ -11,6 +11,8 @@ on:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout Repository
@@ -58,4 +60,5 @@ jobs:
           Release for version ${{ steps.version.outputs.value }}
         draft: false
         prerelease: false
-        files: ${{ env.JAR_PATH }}
+        artifacts: ${{ env.JAR_PATH }}
+        token: ${{ secrets.GITHUB_TOKEN }}
